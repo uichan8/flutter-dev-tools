@@ -88,12 +88,19 @@ show_current() {
 select_ios_simulator() {
     local label="$1"  # "phone" or "pad"
     local filter="$2" # grep 필터
+    local current="$3" # 현재 설정값
 
     local devices=()
     while IFS= read -r line; do
         [ -z "$line" ] && continue
+        [ "$line" = "$current" ] && continue
         devices+=("$line")
-    done <<< "$(xcrun simctl list devices available 2>/dev/null | grep -i "$filter" | sed 's/(.*)//g' | xargs)"
+    done <<< "$(xcrun simctl list devices available 2>/dev/null | grep -i "$filter" | sed 's/ (.*//g' | xargs -I{} echo {})"
+
+    # 현재 선택된 디바이스를 맨 위에 추가
+    if [ -n "$current" ]; then
+        devices=("$current (현재)" "${devices[@]}")
+    fi
 
     if [ ${#devices[@]} -eq 0 ]; then
         echo "사용 가능한 iOS $label 시뮬레이터가 없습니다."
@@ -113,6 +120,7 @@ select_ios_simulator() {
         read -p "시뮬레이터 이름 입력: " SELECTED_DEVICE
     else
         SELECTED_DEVICE="${devices[$MENU_RESULT]}"
+        SELECTED_DEVICE="${SELECTED_DEVICE% (현재)}"
     fi
 }
 
@@ -121,14 +129,21 @@ select_ios_simulator() {
 # ============================================================
 select_android_avd() {
     local label="$1"
+    local current="$2" # 현재 설정값
 
     export PATH="$HOME/Library/Android/sdk/platform-tools:$HOME/Library/Android/sdk/emulator:$PATH"
 
     local avds=()
     while IFS= read -r line; do
         [ -z "$line" ] && continue
+        [ "$line" = "$current" ] && continue
         avds+=("$line")
     done <<< "$(emulator -list-avds 2>/dev/null)"
+
+    # 현재 선택된 에뮬레이터를 맨 위에 추가
+    if [ -n "$current" ]; then
+        avds=("$current (현재)" "${avds[@]}")
+    fi
 
     if [ ${#avds[@]} -eq 0 ]; then
         echo "사용 가능한 Android 에뮬레이터가 없습니다."
@@ -148,6 +163,7 @@ select_android_avd() {
         read -p "AVD 이름 입력: " SELECTED_DEVICE
     else
         SELECTED_DEVICE="${avds[$MENU_RESULT]}"
+        SELECTED_DEVICE="${SELECTED_DEVICE% (현재)}"
     fi
 }
 
@@ -169,7 +185,7 @@ CUR_ENV="${ENV_FILE:-.env}"
 show_current
 
 # iOS 폰 시뮬레이터
-select_ios_simulator "폰" "iphone"
+select_ios_simulator "폰" "iphone" "$CUR_IOS_PHONE"
 [ -n "$SELECTED_DEVICE" ] && CUR_IOS_PHONE="$SELECTED_DEVICE"
 
 show_current
@@ -177,7 +193,7 @@ echo "  → iOS 폰: $CUR_IOS_PHONE"
 echo ""
 
 # iOS 패드 시뮬레이터
-select_ios_simulator "패드" "ipad"
+select_ios_simulator "패드" "ipad" "$CUR_IOS_PAD"
 [ -n "$SELECTED_DEVICE" ] && CUR_IOS_PAD="$SELECTED_DEVICE"
 
 show_current
@@ -186,7 +202,7 @@ echo "  → iOS 패드: $CUR_IOS_PAD"
 echo ""
 
 # Android 폰 에뮬레이터
-select_android_avd "폰"
+select_android_avd "폰" "$CUR_ANDROID_PHONE"
 [ -n "$SELECTED_DEVICE" ] && CUR_ANDROID_PHONE="$SELECTED_DEVICE"
 
 show_current
@@ -196,7 +212,7 @@ echo "  → Android 폰: $CUR_ANDROID_PHONE"
 echo ""
 
 # Android 패드 에뮬레이터
-select_android_avd "패드"
+select_android_avd "패드" "$CUR_ANDROID_PAD"
 [ -n "$SELECTED_DEVICE" ] && CUR_ANDROID_PAD="$SELECTED_DEVICE"
 
 # config.sh 저장
