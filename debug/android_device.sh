@@ -15,13 +15,24 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 
 echo "=== Android 실기기 디버그 빌드 ==="
+echo ""
 
 # Android SDK 경로 설정
 export PATH="$HOME/Library/Android/sdk/platform-tools:$HOME/Library/Android/sdk/emulator:$PATH"
 
-# USB 연결된 실기기 확인 (에뮬레이터 제외)
-DEVICE_LINE=$(adb devices 2>/dev/null | grep -v "^List" | grep -v "^$" | grep -v "emulator" | head -1)
-if [ -z "$DEVICE_LINE" ]; then
+# 연결된 Android 실기기 목록 가져오기
+DEVICE_IDS=()
+DEVICE_NAMES=()
+while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    local_id=$(echo "$line" | awk '{print $1}')
+    local_model=$(adb -s "$local_id" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
+    [ -z "$local_model" ] && local_model="$local_id"
+    DEVICE_IDS+=("$local_id")
+    DEVICE_NAMES+=("$local_model ($local_id)")
+done <<< "$(adb devices 2>/dev/null | grep -v "^List" | grep -v "^$" | grep -v "emulator")"
+
+if [ ${#DEVICE_IDS[@]} -eq 0 ]; then
     echo "오류: USB로 연결된 Android 기기를 찾을 수 없습니다."
     echo ""
     echo "확인 사항:"
@@ -34,19 +45,15 @@ if [ -z "$DEVICE_LINE" ]; then
     exit 1
 fi
 
-# Flutter에서 디바이스 인식 확인
-DEVICE_ID=$(flutter devices | grep android | grep -v emulator | head -1 | awk -F'•' '{print $2}' | xargs)
-if [ -z "$DEVICE_ID" ]; then
-    DEVICE_ID=$(echo "$DEVICE_LINE" | awk '{print $1}')
+# 기기가 1대면 바로 실행, 2대 이상이면 선택
+if [ ${#DEVICE_IDS[@]} -eq 1 ]; then
+    DEVICE_ID="${DEVICE_IDS[0]}"
+    echo "디바이스: ${DEVICE_NAMES[0]}"
+else
+    select_menu "기기를 선택하세요:" "${DEVICE_NAMES[@]}"
+    DEVICE_ID="${DEVICE_IDS[$MENU_RESULT]}"
+    echo "디바이스: ${DEVICE_NAMES[$MENU_RESULT]}"
 fi
 
-if [ -z "$DEVICE_ID" ]; then
-    echo "오류: Android 실기기 디바이스 ID를 추출할 수 없습니다."
-    echo "flutter devices 출력:"
-    flutter devices
-    exit 1
-fi
-
-echo "디바이스: $DEVICE_ID"
 echo "디버그 빌드 시작..."
 flutter run -d "$DEVICE_ID" --dart-define-from-file=$ENV_FILE
