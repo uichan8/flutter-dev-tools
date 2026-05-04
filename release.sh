@@ -135,7 +135,7 @@ show_header() {
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 PLATFORM_NAMES=("Android" "iOS")
-ANDROID_TARGETS=("연결된 실기기에 설치" "APK 빌드" "뒤로가기")
+ANDROID_TARGETS=("연결된 실기기에 설치" "APK 빌드" "AAB 빌드 (Play Store 업로드용)" "뒤로가기")
 IOS_TARGETS=("연결된 실기기에 설치" "IPA 빌드" "뒤로가기")
 
 while true; do
@@ -155,7 +155,7 @@ while true; do
         CHOICE=$MENU_RESULT
 
         # 뒤로가기
-        if [ "$CHOICE" -eq 2 ]; then
+        if [ "$CHOICE" -eq 3 ]; then
             continue
         fi
 
@@ -211,6 +211,20 @@ while true; do
                 cp "$APK_SOURCE" "$SAVE_PATH/app-release.apk"
                 echo "빌드 완료! APK 복사됨:"
                 echo "  $SAVE_PATH/app-release.apk"
+                ;;
+            2)
+                AAB_SOURCE="build/app/outputs/bundle/release/app-release.aab"
+                DEFAULT_SAVE="$PROJECT_ROOT"
+                read -p "저장 경로: $DEFAULT_SAVE" INPUT_PATH
+                SAVE_PATH="${INPUT_PATH:-$DEFAULT_SAVE}"
+                echo ""
+                echo "릴리즈 AAB 빌드 시작..."
+                flutter build appbundle --dart-define-from-file=$ENV_FILE
+                echo ""
+                mkdir -p "$SAVE_PATH"
+                cp "$AAB_SOURCE" "$SAVE_PATH/app-release.aab"
+                echo "빌드 완료! AAB 복사됨:"
+                echo "  $SAVE_PATH/app-release.aab"
                 ;;
         esac
         break
